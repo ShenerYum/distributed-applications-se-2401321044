@@ -5,7 +5,7 @@
 session_start();
 
 if (!defined('__ROOT__')) {
-	define('__ROOT__', dirname(__FILE__, 2));
+	define('__ROOT__', dirname(__DIR__));
 }
 
 $config = require_once __ROOT__ . '/config/config.php';
@@ -22,6 +22,26 @@ $route = $_GET['route'] ?? 'home';
 
 try {
 	switch ($route) {
+		case 'skills/list':
+			require_once __ROOT__ . '/app/controllers/SkillController.php';
+			$controller = new SkillController();
+			$controller->list();
+			break;
+		case 'skills/create':
+			require_once __ROOT__ . '/app/controllers/SkillController.php';
+			$controller = new SkillController();
+			$controller->create();
+			break;
+		case 'skills/update':
+			require_once __ROOT__ . '/app/controllers/SkillController.php';
+			$controller = new SkillController();
+			$controller->update();
+			break;
+		case 'skills/delete':
+			require_once __ROOT__ . '/app/controllers/SkillController.php';
+			$controller = new SkillController();
+			$controller->delete();
+			break;
 		case 'api':
 			header('Content-Type: application/json; charset=utf-8');
 			echo json_encode(['status' => 'ok', 'route' => 'api']);

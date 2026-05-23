@@ -1,3 +1,9 @@
+<?php
+
+if (!defined('__ROOT__')) {
+	define('__ROOT__', dirname(__DIR__, 2));
+}
+?>
 <!doctype html>
 <html lang="en">
 

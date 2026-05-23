@@ -1,10 +1,32 @@
 <?php
 
+if (!defined('__ROOT__')) {
+	define('__ROOT__', dirname(__DIR__));
+}
+
+/**
+ * Base Controller class providing common functionality for all controllers.
+ * Includes methods for rendering views, loading models, sending JSON responses, and handling authentication.
+ */
 class Database
 {
+	/**
+	 * Singleton instance of the Database class.
+	 * @var Database|null
+	 */
 	private static $instance = null;
+
+	/**
+	 * PDO connection instance. Initialized in the constructor.
+	 * @var PDO
+	 */
 	private $pdo;
 
+	/**
+	 * Private constructor to prevent direct instantiation. Use getInstance() instead.
+	 * 
+	 * @param array $config Database configuration with keys: host, db (array with database, username, password, charset)
+	 */
 	private function __construct(array $config)
 	{
 		if (!isset($config['db']) || !is_array($config['db'])) return;
@@ -44,12 +66,17 @@ class Database
 		}
 	}
 
+	/**
+	 * Get the singleton instance of the Database class.
+	 * 
+	 * @param array $config Optional configuration for the first initialization. Ignored on subsequent calls.
+	 * @return Database The singleton instance.
+	 */
 	public static function getInstance(array $config = [])
 	{
 		if (self::$instance === null) {
 			if (empty($config)) {
-				$cfgFile = __DIR__ . '/../config/database.php';
-
+				$cfgFile = __ROOT__ . '/config/database.php';
 				if (file_exists($cfgFile)) $config = require $cfgFile;
 			}
 
@@ -63,6 +90,11 @@ class Database
 		return self::$instance;
 	}
 
+	/**
+	 * Get the PDO connection instance.
+	 * 
+	 * @return PDO The PDO connection.
+	 */
 	public function getConnection()
 	{
 		return $this->pdo;
