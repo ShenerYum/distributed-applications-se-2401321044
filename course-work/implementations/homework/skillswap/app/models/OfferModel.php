@@ -46,7 +46,7 @@ class OfferModel extends Model
 			'availability' => $availability,
 			'title' => $data['title'] ?? null,
 			'description' => $data['description'] ?? null,
-			'user_id' => isset($data['user_id']) ? trim($data['user_id']) : null,
+			'user_id' => isset($_SESSION['user_id']) ? trim($_SESSION['user_id']) : null,
 		];
 
 		foreach ($data as $key => $value) {
@@ -80,9 +80,69 @@ class OfferModel extends Model
 	 * @param int|null $offset
 	 * @return array
 	 */
-	public function getOffersByUser(string $userId, ?int $limit = null, ?int $offset = null): array
+	public function getOffersByUser(string $userId, ?int $limit = 50, ?int $offset = 0): array
 	{
-		return $this->findBy(['user_id' => $userId], $limit, $offset);
+		// Return offers belonging to a user, joined with skill meta (name, category)
+		$sql = 'SELECT o.*,'
+			. ' s.name AS skill_name, s.category AS skill_category'
+			. ' FROM ' . $this->quoteIdentifier($this->table) . ' o'
+			. ' LEFT JOIN ' . $this->quoteIdentifier('Skills') . ' s ON o.' . $this->quoteIdentifier('skill_id') . ' = s.' . $this->quoteIdentifier('id')
+			. ' WHERE o.' . $this->quoteIdentifier('user_id') . ' = :user'
+			. ' ORDER BY o.' . $this->quoteIdentifier($this->primaryKey) . ' DESC'
+			. ' LIMIT :limit OFFSET :offset';
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->bindValue(':user', $userId, PDO::PARAM_STR);
+		$stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+		$stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll();
+	}
+
+	/**
+	 * Get offers matching any of the provided skill ids.
+	 *
+	 * @param array $skillIds
+	 * @param int $limit
+	 * @param int $offset
+	 * @return array
+	 */
+	public function getOffersBySkillIds(array $skillIds, int $limit = 50, int $offset = 0): array
+	{
+		if (empty($skillIds)) return [];
+
+		$placeholders = [];
+		$params = [];
+		foreach ($skillIds as $i => $sid) {
+			$ph = ':s' . $i;
+			$placeholders[] = $ph;
+			$params[$ph] = $sid;
+		}
+
+		$sql = 'SELECT o.*, s.name AS skill_name, s.category AS skill_category'
+			. ' FROM ' . $this->quoteIdentifier($this->table) . ' o'
+			. ' LEFT JOIN ' . $this->quoteIdentifier('Skills') . ' s ON o.' . $this->quoteIdentifier('skill_id') . ' = s.' . $this->quoteIdentifier('id')
+			. ' WHERE o.' . $this->quoteIdentifier('skill_id') . ' IN (' . implode(',', $placeholders) . ')';
+
+		$me = isset($_SESSION['user_id']) ? trim($_SESSION['user_id']) : null;
+		if (!empty($me)) {
+			$sql = rtrim($sql, ';') . ' AND o.' . $this->quoteIdentifier('user_id') . ' != :me';
+			$params[':me'] = $me;
+		}
+
+		$sql .= ' ORDER BY o.' . $this->quoteIdentifier($this->primaryKey) . ' DESC';
+		$sql .= ' LIMIT :limit OFFSET :offset';
+
+		$stmt = $this->db->prepare($sql);
+		foreach ($params as $k => $v) {
+			$stmt->bindValue($k, $v, PDO::PARAM_STR);
+		}
+		$stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+		$stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll();
 	}
 
 	/**

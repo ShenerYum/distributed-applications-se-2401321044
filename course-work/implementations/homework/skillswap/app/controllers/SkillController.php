@@ -29,26 +29,6 @@ class SkillController extends Controller
 	}
 
 
-	private function requireAdmin()
-	{
-		$user = $this->requireAuth();
-		$isAdmin = false;
-
-		if (isset($user['is_admin']) && $user['is_admin']) {
-			$isAdmin = true;
-		}
-
-		if (isset($user['role']) && strtolower($user['role']) === 'admin') {
-			$isAdmin = true;
-		}
-
-		if (!$isAdmin) {
-			$this->json(['error' => 'Admin privileges required'], 403);
-		}
-
-		return true;
-	}
-
 	/**
 	 * GET list skills with optional filtering by name and pagination.
 	 * 
@@ -70,7 +50,26 @@ class SkillController extends Controller
 			$skills = $this->skillModel->findAll($limit, $offset);
 		}
 
-		return $this->json(['success' => true, 'data' => $skills]);
+		$this->json(['success' => true, 'data' => $skills]);
+	}
+
+	/**
+	 * Render skills index view for HTML clients, or return JSON for API.
+	 */
+	public function index()
+	{
+		$isApi = strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false;
+		$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+		$offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
+		if (!empty($_GET['name'])) {
+			$skills = $this->skillModel->findBy(['name' => trim($_GET['name'])], $limit, $offset);
+		} else {
+			$skills = $this->skillModel->findAll($limit, $offset);
+		}
+
+		if ($isApi) $this->json(['success' => true, 'data' => $skills]);
+
+		$this->render('skills/index', ['skills' => $skills]);
 	}
 
 	/**
@@ -82,22 +81,40 @@ class SkillController extends Controller
 	{
 		$this->requireAdmin();
 
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			$this->render('skills/create');
+			return;
+		}
+
 		$input = $_POST;
 		$name = trim($input['name'] ?? '');
 		$description = trim($input['description'] ?? '');
+		$category = trim($input['category'] ?? '');
 
 		if ($name === '') {
-			return $this->json(['error' => 'Skill name is required'], 422);
+			if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
+				$this->json(['error' => 'Skill name is required'], 422);
+			}
+
+			$this->render('skills/create', ['errors' => ['Skill name is required']]);
+			return;
 		}
 
 		try {
 			$skill = $this->skillModel->createSkill([
 				'name' => $name,
 				'description' => $description,
+				'category' => $category,
 			]);
-			return $this->json(['success' => true, 'data' => $skill], 201);
+			if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
+				$this->json(['success' => true, 'data' => $skill], 201);
+			}
+			$this->redirect('skills');
 		} catch (Exception $e) {
-			return $this->json(['error' => $e->getMessage()], 400);
+			if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
+				$this->json(['error' => $e->getMessage()], 400);
+			}
+			$this->render('skills/create', ['errors' => [$e->getMessage()]]);
 		}
 	}
 
@@ -112,7 +129,7 @@ class SkillController extends Controller
 
 		$id = trim($_POST['id'] ?? '');
 		if (!$this->isValidUUID($id)) {
-			return $this->json(['error' => 'Valid skill UUID is required'], 422);
+			$this->json(['error' => 'Valid skill UUID is required'], 422);
 		}
 
 		$data = [];
@@ -122,19 +139,22 @@ class SkillController extends Controller
 		if (isset($_POST['description'])) {
 			$data['description'] = trim($_POST['description']);
 		}
+		if (isset($_POST['category'])) {
+			$data['category'] = trim($_POST['category']);
+		}
 
 		if (empty($data)) {
-			return $this->json(['error' => 'No update data provided'], 422);
+			$this->json(['error' => 'No update data provided'], 422);
 		}
 
 		try {
 			$updated = $this->skillModel->updateSkill($id, $data);
 			if ($updated === false) {
-				return $this->json(['error' => 'Failed to update skill'], 500);
+				$this->json(['error' => 'Failed to update skill'], 500);
 			}
-			return $this->json(['success' => true, 'data' => $updated]);
+			$this->json(['success' => true, 'data' => $updated]);
 		} catch (Exception $e) {
-			return $this->json(['error' => $e->getMessage()], 400);
+			$this->json(['error' => $e->getMessage()], 400);
 		}
 	}
 
@@ -143,20 +163,67 @@ class SkillController extends Controller
 	 * 
 	 * @return array JSON response indicating success or an error message.
 	 */
-	public function delete()
+	public function delete(string $id)
 	{
+		// Support admin-only HTML delete via skills/{id}/delete (POST) or API POST id
 		$this->requireAdmin();
 
-		$id = trim($_POST['id'] ?? '');
 		if (!$this->isValidUUID($id)) {
-			return $this->json(['error' => 'Valid skill UUID is required'], 422);
+			$this->json(['error' => 'Valid skill UUID is required'], 422);
 		}
 
 		$removed = $this->skillModel->deleteSkill($id);
 		if (!$removed) {
-			return $this->json(['error' => 'Could not delete skill'], 500);
+			$this->json(['error' => 'Could not delete skill'], 500);
 		}
 
-		return $this->json(['success' => true]);
+		if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
+			$this->json(['success' => true]);
+		}
+
+		$this->redirect('skills');
+	}
+
+	/**
+	 * Edit skill (admin only): GET renders edit form, POST applies update and redirects.
+	 */
+	public function edit(string $id)
+	{
+		$this->requireAdmin();
+
+		if (!$this->isValidUUID($id)) {
+			$this->json(['error' => 'Valid skill UUID is required'], 422);
+		}
+
+		$skill = $this->skillModel->findById($id);
+		if (!$skill) {
+			$this->json(['error' => 'Skill not found'], 404);
+		}
+
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			$this->render('skills/edit', ['skill' => $skill]);
+			return;
+		}
+
+		$data = [];
+		$name = trim($_POST['name'] ?? '');
+		$description = trim($_POST['description'] ?? '');
+		$category = trim($_POST['category'] ?? '');
+		if ($name !== '') $data['name'] = $name;
+		if ($description !== '') $data['description'] = $description;
+		if ($category !== '') $data['category'] = $category;
+
+		if (empty($data)) {
+			$this->render('skills/edit', ['skill' => $skill, 'errors' => ['No update data provided']]);
+			return;
+		}
+
+		$ok = $this->skillModel->updateSkill($id, $data);
+		if (!$ok) {
+			$this->render('skills/edit', ['skill' => $skill, 'errors' => ['Failed to update skill']]);
+			return;
+		}
+
+		$this->redirect('skills');
 	}
 }

@@ -1,22 +1,25 @@
 <?php
 
-if (!defined('__ROOT__')) {
-	define('__ROOT__', dirname(__DIR__, 2));
-}
+// $isAdmin = isset($_SESSION['is_admin']) && (int)$_SESSION['is_admin'] === 1;
+
+$title = 'Home';
+require __DIR__ . '/shared/header.php';
 ?>
-<!doctype html>
-<html lang="en">
 
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>Skill Swap - Home</title>
-	<link rel="stylesheet" href="/skill-swap/public/css/style.css">
-</head>
+<h1>Welcome to Skill Swap</h1>
+<p>Tralala.</p>
 
-<body>
-	<h1>Welcome to Skill Swap</h1>
-	<p>Tralala.</p>
-</body>
+<?php if (!empty($_SESSION['user_id'])): ?>
+	<ul>
+		<li><a href="<?= $baseUrl . $basepath; ?>profile">Your Profile</a></li>
+		<li><a href="<?= $baseUrl . $basepath; ?>users">Browse Users</a></li>
+		<li><a href="<?= $baseUrl . $basepath; ?>skills">Browse Skills</a></li>
+		<li><a href="<?= $baseUrl . $basepath; ?>offers">Browse Offers</a></li>
+		<li><a href="<?= $baseUrl . $basepath; ?>requests">Browse Requests</a></li>
+	</ul>
+<?php else: ?>
+	<a href="<?= $baseUrl . $basepath; ?>login">Login</a>
+	<a href="<?= $baseUrl . $basepath; ?>register">Register</a>
+<?php endif; ?>
 
-</html>
+<?php require __DIR__ . '/shared/footer.php'; ?>

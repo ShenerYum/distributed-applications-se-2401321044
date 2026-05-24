@@ -1,0 +1,20 @@
+# Public front controller rules
+Options -Indexes
+RewriteEngine On
+RewriteBase /
+
+# Redirect HTTP to HTTPS
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Use index.php as directory index
+DirectoryIndex index.php
+
+# Serve existing files and directories directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Rewrite everything else to index.php and pass original path as `route`
+RewriteRule ^$ index.php [L,QSA]
+RewriteRule ^(.*)$ index.php?route=$1 [L,QSA]

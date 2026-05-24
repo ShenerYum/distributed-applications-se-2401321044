@@ -37,25 +37,49 @@ class AuthController extends Controller
 	 */
 	public function register()
 	{
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			$this->render('register');
+			return;
+		}
+
 		$input = $_POST;
 		$name = trim($input['name'] ?? '');
 		$email = trim($input['email'] ?? '');
 		$password = $input['password'] ?? '';
+		$password_confirm = $input['password_confirm'] ?? '';
 
-		if (!$name || !$email || !$password) {
-			return $this->json(['error' => 'Missing required fields'], 422);
+		$errors = [];
+		if (!$name) $errors[] = 'Name is required.';
+		if (!$email) $errors[] = 'Email is required.';
+		if (!$password) $errors[] = 'Password is required.';
+		if ($password !== $password_confirm) $errors[] = 'Passwords do not match.';
+
+		$isApi = strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false ||
+			(isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false);
+
+		if (!empty($errors)) {
+			if ($isApi) $this->json(['error' => $errors], 422);
+
+			$this->render('register', ['errors' => $errors]);
+			return;
 		}
 
 		try {
 			$user = $this->userModel->register($name, $email, $password);
-
 			if (!empty($user['id'])) {
 				$_SESSION['user_id'] = $user['id'];
+				$_SESSION['user_name'] = $user['name'];
 			}
 
-			return $this->json(['success' => true, 'user' => $user], 201);
+			if ($isApi) {
+				$this->json(['success' => true, 'user' => $user], 201);
+			}
+
+			$this->redirect();
 		} catch (Exception $e) {
-			return $this->json(['error' => $e->getMessage()], 400);
+			if ($isApi) $this->json(['error' => $e->getMessage()], 400);
+
+			$this->render('register', ['errors' => [$e->getMessage()]]);
 		}
 	}
 
@@ -67,21 +91,39 @@ class AuthController extends Controller
 	 */
 	public function login()
 	{
+		if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+			$this->render('login');
+			return;
+		}
+
 		$input = $_POST;
 		$email = trim($input['email'] ?? '');
 		$password = $input['password'] ?? '';
 
+		$isApi = strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false ||
+			(isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false);
+
 		if (!$email || !$password) {
-			return $this->json(['error' => 'Missing email or password'], 422);
+			if ($isApi) $this->json(['error' => 'Missing email or password'], 422);
+
+			$this->render('login', ['error' => 'Missing email or password']);
+			return;
 		}
 
 		$user = $this->userModel->login($email, $password);
 		if ($user) {
 			$_SESSION['user_id'] = $user['id'] ?? null;
-			return $this->json(['success' => true, 'user' => $user]);
+			$_SESSION['user_name'] = $user['name'] ?? null;
+			$_SESSION['is_admin'] = $user['is_admin'] ?? null;
+
+			if ($isApi) $this->json(['success' => true, 'user' => $user]);
+
+			$this->redirect();
 		}
 
-		return $this->json(['error' => 'Invalid credentials'], 401);
+		if ($isApi) $this->json(['error' => 'Invalid credentials'], 401);
+
+		$this->render('login', ['error' => 'Invalid credentials']);
 	}
 
 	/**
@@ -109,6 +151,10 @@ class AuthController extends Controller
 
 		session_destroy();
 
-		return $this->json(['success' => true]);
+		$isApi = strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false;
+		if ($isApi) $this->json(['success' => true]);
+
+		$this->redirect();
+		exit;
 	}
 }

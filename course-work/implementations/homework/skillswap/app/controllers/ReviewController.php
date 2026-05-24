@@ -20,6 +20,12 @@ class ReviewController extends Controller
 	 */
 	private $reviewModel;
 
+	/**
+	 * The RatingService instance for recalculating user ratings after review changes.
+	 * @var RatingService
+	 */
+	private $ratingService;
+
 	public function __construct()
 	{
 		if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -27,6 +33,8 @@ class ReviewController extends Controller
 		}
 
 		$this->reviewModel = $this->loadModel('ReviewModel');
+		require_once __ROOT__ . '/app/services/RatingService.php';
+		$this->ratingService = new RatingService();
 	}
 
 	/**
@@ -38,14 +46,79 @@ class ReviewController extends Controller
 	{
 		$userId = trim($_GET['user_id'] ?? '');
 		if (!$this->isValidUUID($userId)) {
-			return $this->json(['error' => 'Valid user UUID is required'], 422);
+			$this->json(['error' => 'Valid user UUID is required'], 422);
 		}
 
 		$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
 		$offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
 		$reviews = $this->reviewModel->getReviewsByUser($userId, $limit, $offset);
-		return $this->json(['success' => true, 'data' => $reviews]);
+		$this->json(['success' => true, 'data' => $reviews]);
+	}
+
+	/**
+	 * Render profile reviews page for current user (HTML)
+	 */
+	public function profileReviews()
+	{
+		$user = $this->requireAuth();
+		$reviews = $this->reviewModel->getReviewsByUser($user['id'], 100, 0);
+		$this->render('profile/reviews', ['reviews' => $reviews]);
+	}
+
+	/**
+	 * Admin index to list all reviews with optional sorting.
+	 */
+	public function index()
+	{
+		$this->requireAdmin();
+
+		$sort = $_GET['sort'] ?? 'created_at';
+		$reviews = $this->reviewModel->getAllReviews(200, 0, $sort);
+		$this->render('reviews/index', ['reviews' => $reviews, 'sort' => $sort]);
+	}
+
+	/**
+	 * Render create review form (GET) or forward POST to add().
+	 */
+	public function create()
+	{
+		$this->requireAuth();
+
+		if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+			$matchId = trim($_GET['match_id'] ?? '');
+			$this->render('reviews/create', ['match_id' => $matchId]);
+			return;
+		}
+
+		$this->add();
+		return;
+	}
+
+	/**
+	 * Render edit form for a review and handle POST to update.
+	 * @param string $id
+	 */
+	public function edit(string $id)
+	{
+		$user = $this->requireAuth();
+		$review = $this->reviewModel->findById($id);
+		if (!$review) {
+			$this->json(['error' => 'Review not found'], 404);
+		}
+
+		$isAdmin = (isset($user['is_admin']) && $user['is_admin']);
+		if (!$isAdmin && $review['reviewer_id'] !== $user['id']) {
+			$this->json(['error' => 'Not authorized to edit this review'], 403);
+		}
+
+		if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+			$this->render('reviews/edit', ['review' => $review]);
+			return;
+		}
+
+		$_POST['id'] = $id;
+		return $this->update();
 	}
 
 	/**
@@ -58,12 +131,12 @@ class ReviewController extends Controller
 		$user = $this->requireAuth();
 		$matchId = trim($_POST['match_id'] ?? '');
 		if (!$this->isValidUUID($matchId)) {
-			return $this->json(['error' => 'Valid match UUID is required'], 422);
+			$this->json(['error' => 'Valid match UUID is required'], 422);
 		}
 
 		$rating = isset($_POST['rating']) ? (int)$_POST['rating'] : 0;
 		if ($rating < 1 || $rating > 5) {
-			return $this->json(['error' => 'Rating must be 1..5'], 422);
+			$this->json(['error' => 'Rating must be 1..5'], 422);
 		}
 
 		$feedback = trim($_POST['feedback'] ?? '');
@@ -76,9 +149,20 @@ class ReviewController extends Controller
 				'feedback' => $feedback,
 			]);
 
-			return $this->json(['success' => true, 'data' => $review], 201);
+
+			$info = $this->reviewModel->getReviewAndReviewee($review['id'] ?? ($reviewId ?? ''));
+			if (!empty($info['reviewee_id'])) {
+				$this->ratingService->recalcUserRating($info['reviewee_id']);
+			}
+
+			if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') === false) {
+				$_SESSION['flash'][] = ['message' => 'Review created'];
+				$this->redirect('profile/matches');
+			}
+
+			$this->json(['success' => true, 'data' => $review], 201);
 		} catch (Exception $e) {
-			return $this->json(['error' => $e->getMessage()], 400);
+			$this->json(['error' => $e->getMessage()], 400);
 		}
 	}
 
@@ -93,12 +177,12 @@ class ReviewController extends Controller
 
 		$id = trim($_POST['id'] ?? '');
 		if (!$this->isValidUUID($id)) {
-			return $this->json(['error' => 'Valid review id required'], 422);
+			$this->json(['error' => 'Valid review id required'], 422);
 		}
 
 		$info = $this->reviewModel->getReviewAndReviewee($id);
 		if (!$info || empty($info['review'])) {
-			return $this->json(['error' => 'Review not found'], 404);
+			$this->json(['error' => 'Review not found'], 404);
 		}
 
 		$review = $info['review'];
@@ -106,32 +190,43 @@ class ReviewController extends Controller
 
 		$isAdmin = (isset($user['is_admin']) && $user['is_admin']) || (isset($user['role']) && strtolower($user['role']) === 'admin');
 		if (!$isAdmin && $review['reviewer_id'] !== $user['id']) {
-			return $this->json(['error' => 'Not authorized to update this review'], 403);
+			$this->json(['error' => 'Not authorized to update this review'], 403);
 		}
 
 		$data = [];
 		if (isset($_POST['rating'])) {
 			$r = (int)$_POST['rating'];
-			if ($r < 1 || $r > 5) return $this->json(['error' => 'Rating must be 1..5'], 422);
+			if ($r < 1 || $r > 5) {
+				$this->json(['error' => 'Rating must be 1..5'], 422);
+			}
+
 			$data['rating'] = $r;
 		}
+
 		if (isset($_POST['feedback'])) {
 			$data['feedback'] = trim($_POST['feedback']);
 		}
 
 		if (empty($data)) {
-			return $this->json(['error' => 'No update data provided'], 422);
+			$this->json(['error' => 'No update data provided'], 422);
 		}
 
 		$ok = $this->reviewModel->update($id, $data);
-		if (!$ok) return $this->json(['error' => 'Failed to update review'], 500);
+		if (!$ok) {
+			$this->json(['error' => 'Failed to update review'], 500);
+		}
 
 		if ($reviewee) {
-			$this->reviewModel->recalcUserRating($reviewee);
+			$this->ratingService->recalcUserRating($reviewee);
 		}
 
 		$updated = $this->reviewModel->findById($id);
-		return $this->json(['success' => true, 'data' => $updated]);
+		if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') === false) {
+			$_SESSION['flash'][] = ['message' => 'Review updated'];
+			$this->redirect('profile/matches');
+		}
+
+		$this->json(['success' => true, 'data' => $updated]);
 	}
 
 	/**
@@ -145,12 +240,12 @@ class ReviewController extends Controller
 
 		$id = trim($_POST['id'] ?? '');
 		if (!$this->isValidUUID($id)) {
-			return $this->json(['error' => 'Valid review id required'], 422);
+			$this->json(['error' => 'Valid review id required'], 422);
 		}
 
 		$info = $this->reviewModel->getReviewAndReviewee($id);
 		if (!$info || empty($info['review'])) {
-			return $this->json(['error' => 'Review not found'], 404);
+			$this->json(['error' => 'Review not found'], 404);
 		}
 
 		$review = $info['review'];
@@ -158,16 +253,28 @@ class ReviewController extends Controller
 
 		$isAdmin = (isset($user['is_admin']) && $user['is_admin']) || (isset($user['role']) && strtolower($user['role']) === 'admin');
 		if (!$isAdmin && $review['reviewer_id'] !== $user['id']) {
-			return $this->json(['error' => 'Not authorized to delete this review'], 403);
+			$this->json(['error' => 'Not authorized to delete this review'], 403);
 		}
 
 		$ok = $this->reviewModel->delete($id);
-		if (!$ok) return $this->json(['error' => 'Failed to delete review'], 500);
-
-		if ($reviewee) {
-			$this->reviewModel->recalcUserRating($reviewee);
+		if (!$ok) {
+			$this->json(['error' => 'Failed to delete review'], 500);
 		}
 
-		return $this->json(['success' => true]);
+		if ($reviewee) {
+			$this->ratingService->recalcUserRating($reviewee);
+		}
+
+		if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') === false) {
+			$isAdmin = (isset($user['is_admin']) && $user['is_admin']) || (isset($user['role']) && strtolower($user['role']) === 'admin');
+			$_SESSION['flash'][] = ['message' => 'Review deleted'];
+			if ($isAdmin) {
+				$this->redirect('reviews');
+			} else {
+				$this->redirect('profile/matches');
+			}
+		}
+
+		$this->json(['success' => true]);
 	}
 }

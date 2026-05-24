@@ -7,7 +7,7 @@ if (!defined('__ROOT__')) {
 require_once __ROOT__ . '/core/Model.php';
 
 /**
- * RequestModel is responsible for handling request-related operations such as creating new requests, filtering requests by skill and availability, and retrieving requests for specific users.
+ * RequestModel is responsible for handling request-related operations such as creating new requests, filtering requests by skill and desired_level, and retrieving requests for specific users.
  */
 class RequestModel extends Model
 {
@@ -30,22 +30,23 @@ class RequestModel extends Model
 	public function createRequest(array $data): array
 	{
 		$skillId = trim($data['skill_id'] ?? $data['skill'] ?? '');
-		$availability = trim($data['availability'] ?? '');
+		$desiredLevel = trim($data['desired_level'] ?? '');
 
 		if ($skillId === '') {
 			throw new InvalidArgumentException('Request skill_id is required');
 		}
 
-		if ($availability === '') {
-			throw new InvalidArgumentException('Request availability is required');
+		if ($desiredLevel === '') {
+			throw new InvalidArgumentException('Request desired_level is required');
 		}
 
 		$payload = [
 			'skill_id' => $skillId,
-			'availability' => $availability,
+			'desired_level' => $desiredLevel,
 			'title' => $data['title'] ?? null,
-			'description' => $data['description'] ?? null,
-			'user_id' => isset($data['user_id']) ? trim($data['user_id']) : null,
+			'notes' => $data['notes'] ?? null,
+			'max_hours' => isset($data['max_hours']) ? (int)$data['max_hours'] : null,
+			'user_id' => isset($_SESSION['user_id']) ? trim($_SESSION['user_id']) : null,
 		];
 
 		$id = $this->create($payload);
@@ -67,15 +68,15 @@ class RequestModel extends Model
 	}
 
 	/**
-	 * Filter requests by skill_id (UUID) or skill name and availability.
+	 * Filter requests by skill_id (UUID) or skill name and desired_level.
 	 * 
 	 * @param string|null $skillIdOrName
-	 * @param string|null $availability
+	 * @param string|null $desiredLevel
 	 * @param int $limit
 	 * @param int $offset
 	 * @return array
 	 */
-	public function filterRequests(?string $skillIdOrName = null, ?string $availability = null, int $limit = 50, int $offset = 0): array
+	public function filterRequests(?string $skillIdOrName = null, ?string $desiredLevel = null, int $limit = 50, int $offset = 0): array
 	{
 		$where = [];
 		$params = [];
@@ -93,9 +94,9 @@ class RequestModel extends Model
 			}
 		}
 
-		if ($availability !== null) {
-			$where[] = $this->quoteIdentifier('r') . '.' . $this->quoteIdentifier('availability') . ' = :availability';
-			$params[':availability'] = trim($availability);
+		if ($desiredLevel !== null) {
+			$where[] = $this->quoteIdentifier('r') . '.' . $this->quoteIdentifier('desired_level') . ' = :desired_level';
+			$params[':desired_level'] = trim($desiredLevel);
 		}
 
 		if (!empty($where)) {
@@ -124,8 +125,69 @@ class RequestModel extends Model
 	 * @param int|null $offset
 	 * @return array
 	 */
-	public function getRequestsByUser(string $userId, ?int $limit = null, ?int $offset = null): array
+	public function getRequestsByUser(string $userId, ?int $limit = 50, ?int $offset = 0): array
 	{
-		return $this->findBy(['user_id' => $userId], $limit, $offset);
+		// Return requests belonging to a user, joined with skill meta (name, category)
+		$sql = 'SELECT r.*,'
+			. ' s.name AS skill_name, s.category AS skill_category'
+			. ' FROM ' . $this->quoteIdentifier($this->table) . ' r'
+			. ' LEFT JOIN ' . $this->quoteIdentifier('Skills') . ' s ON r.' . $this->quoteIdentifier('skill_id') . ' = s.' . $this->quoteIdentifier('id')
+			. ' WHERE r.' . $this->quoteIdentifier('user_id') . ' = :user'
+			. ' ORDER BY r.' . $this->quoteIdentifier($this->primaryKey) . ' DESC'
+			. ' LIMIT :limit OFFSET :offset';
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->bindValue(':user', $userId, PDO::PARAM_STR);
+		$stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+		$stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll();
+	}
+
+	/**
+	 * Get requests matching any of the provided skill ids.
+	 *
+	 * @param array $skillIds
+	 * @param int $limit
+	 * @param int $offset
+	 * @return array
+	 */
+	public function getRequestsBySkillIds(array $skillIds, int $limit = 50, int $offset = 0): array
+	{
+		if (empty($skillIds)) return [];
+
+		$placeholders = [];
+		$params = [];
+		foreach ($skillIds as $i => $sid) {
+			$ph = ':s' . $i;
+			$placeholders[] = $ph;
+			$params[$ph] = $sid;
+		}
+
+		$sql = 'SELECT r.*, s.name AS skill_name, s.category AS skill_category'
+			. ' FROM ' . $this->quoteIdentifier($this->table) . ' r'
+			. ' LEFT JOIN ' . $this->quoteIdentifier('Skills') . ' s ON r.' . $this->quoteIdentifier('skill_id') . ' = s.' . $this->quoteIdentifier('id')
+			. ' WHERE r.' . $this->quoteIdentifier('skill_id') . ' IN (' . implode(',', $placeholders) . ')';
+
+		// Exclude requests created by the current user (if available in session)
+		$me = isset($_SESSION['user_id']) ? trim($_SESSION['user_id']) : null;
+		if (!empty($me)) {
+			$sql = rtrim($sql, ';') . ' AND r.' . $this->quoteIdentifier('user_id') . ' != :me';
+			$params[':me'] = $me;
+		}
+
+		$sql .= ' ORDER BY r.' . $this->quoteIdentifier($this->primaryKey) . ' DESC';
+		$sql .= ' LIMIT :limit OFFSET :offset';
+
+		$stmt = $this->db->prepare($sql);
+		foreach ($params as $k => $v) {
+			$stmt->bindValue($k, $v, PDO::PARAM_STR);
+		}
+		$stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+		$stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+		$stmt->execute();
+
+		return $stmt->fetchAll();
 	}
 }

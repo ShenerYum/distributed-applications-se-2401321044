@@ -85,6 +85,19 @@ class Controller
 	protected function json(array $data, int $status = 200)
 	{
 		http_response_code($status);
+		$accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+		$isApi = strpos($accept, 'application/json') !== false || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
+
+		// If client does not request JSON and this is an error response,
+		// render the appropriate HTML error page instead of returning raw JSON.
+		if (!$isApi && $status >= 400 && isset($data['error'])) {
+			// provide the error message to the view as $errorMessage
+			$errorMessage = $data['error'];
+
+			$this->render('errors/' . ($status ?? 500), ['errorMessage' => $errorMessage]);
+			exit;
+		}
+
 		header('Content-Type: application/json; charset=utf-8');
 		echo json_encode($data);
 		exit;
@@ -128,9 +141,30 @@ class Controller
 	protected function requireAuth(): array
 	{
 		$user = $this->getCurrentUser();
+
 		if (!$user) {
-			$this->json(['error' => 'Authentication required'], 401);
+			$this->redirect('auth/login');
+			// $this->json(['error' => 'Authentication required'], 401);
 		}
+		return $user;
+	}
+
+
+	/**
+	 * Require admin privileges; sends 403 JSON when not an admin.
+	 * Checks `is_admin` field in user record or session.
+	 * 
+	 * @return array
+	 */
+	protected function requireAdmin(): array
+	{
+		$user = $this->requireAuth();
+		$isAdmin = (isset($user['is_admin']) && $user['is_admin']);
+
+		if (!$isAdmin) {
+			$this->json(['error' => 'Admin privileges required'], 403);
+		}
+
 		return $user;
 	}
 
@@ -144,5 +178,16 @@ class Controller
 	{
 		$uuid = trim($uuid);
 		return (bool)preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uuid);
+	}
+
+	/**
+	 * Redirect to a given URL path.
+	 * 
+	 * @param string $url The URL path to redirect to (default is home '/').
+	 */
+	protected function redirect(string $url = '')
+	{
+		header('Location: /' . $url);
+		exit;
 	}
 }

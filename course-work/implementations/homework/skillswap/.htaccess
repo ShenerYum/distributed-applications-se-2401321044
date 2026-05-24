@@ -1,14 +1,13 @@
-# Redirect all requests to HTTPS, then route through the public folder while preserving the root host
+# Redirect all requests to HTTPS, then route through the public front controller
 RewriteEngine On
 RewriteBase /
 
-# Redirect HTTP to HTTPS on standard port 443
+# Redirect HTTP to HTTPS
 RewriteCond %{HTTPS} !=on
-RewriteCond %{HTTP_HOST} ^([^:]+)(?::\d+)?$ [NC]
-RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Use public/index.php as the directory index
-DirectoryIndex index.php
+DirectoryIndex public/index.php
 
 # Do not rewrite requests that already target the public folder
 RewriteRule ^public/ - [L]
@@ -18,5 +17,7 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Otherwise rewrite everything to public/
-RewriteRule ^(.*)$ public/$1 [L,QSA]
+# Rewrite everything else to the public front controller and pass original path as `route`
+# Root -> public/index.php
+RewriteRule ^$ public/index.php [L,QSA]
+RewriteRule ^(.*)$ public/index.php?route=$1 [L,QSA]

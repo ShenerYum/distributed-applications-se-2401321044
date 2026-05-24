@@ -63,10 +63,20 @@ class MatchingService
 				$skillY = $requestA['skill_id'] ?? null;
 
 				// find users B who offer Y and request X (matching by skill_id)
-				$sql = "SELECT o.user_id as user_id, o.id as offer_id, r.id as request_id, o.skill_id as offer_skill_id, r.skill_id as request_skill_id, o.availability as offer_availability, r.availability as request_availability
-		FROM `Offers` o
-		JOIN `Requests` r ON r.user_id = o.user_id
-		WHERE o.skill_id = :skillY AND r.skill_id = :skillX";
+				$sql = "SELECT 
+						o.user_id as user_id,
+						o.id as offer_id,
+						r.id as request_id,
+						o.skill_id as offer_skill_id,
+						r.skill_id as request_skill_id,
+						o.availability as offer_availability,
+						r.availability as request_availability
+					FROM `Offers` o
+					JOIN `Requests` r
+						ON r.user_id = o.user_id
+					WHERE o.skill_id = :skillY
+						AND r.skill_id = :skillX
+					";
 
 				$rows = $this->offerModel->rawQuery($sql, [':skillY' => $skillY, ':skillX' => $skillX]);
 
