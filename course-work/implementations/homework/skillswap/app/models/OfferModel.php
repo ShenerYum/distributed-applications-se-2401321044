@@ -1,197 +1,31 @@
 <?php
 
-if (!defined('__ROOT__')) {
-	define('__ROOT__', dirname(__DIR__, 2));
-}
+namespace App\Models;
 
-require_once __ROOT__ . '/core/Model.php';
+use App\Core\Model;
 
-/**
- * OfferModel is responsible for handling offer-related operations such as creating new offers, filtering offers by skill and availability, and retrieving offers for specific users.
- */
 class OfferModel extends Model
 {
-	public function __construct()
+	public function __construct(private \PDO $db)
 	{
-		parent::__construct();
+		parent::__construct($db);
 		$this->setTable('Offers');
 		$this->setPrimaryKey('id');
 	}
 
-	/**
-	 * Create a new offer.
-	 * 
-	 * @param array $data
-	 * 
-	 * @return array Created offer record
-	 * 
-	 * @throws InvalidArgumentException if required fields are missing or invalid.
-	 * @throws RuntimeException if database operations fail.
-	 */
-	public function createOffer(array $data): array
+
+	public function createOffer(array $data): ?array
 	{
-		$skillId = trim($data['skill_id'] ?? $data['skill'] ?? '');
-		$availability = trim($data['availability'] ?? '');
-
-		if ($skillId === '') {
-			throw new InvalidArgumentException('Offer skill_id is required');
-		}
-
-		if ($availability === '') {
-			throw new InvalidArgumentException('Offer availability is required');
-		}
-
-		$payload = [
-			'skill_id' => $skillId,
-			'availability' => $availability,
-			'title' => $data['title'] ?? null,
-			'description' => $data['description'] ?? null,
-			'user_id' => isset($_SESSION['user_id']) ? trim($_SESSION['user_id']) : null,
-		];
-
-		foreach ($data as $key => $value) {
-			if (!array_key_exists($key, $payload)) {
-				$payload[$key] = $value;
-			}
-		}
-
-		$id = $this->create($payload);
-		$offer = $this->findById($id);
-		return $offer ?: [];
+		return $this->findById($this->create($data));
 	}
 
-	/**
-	 * Get all offers with pagination.
-	 * 
-	 * @param int $limit
-	 * @param int $offset
-	 * @return array
-	 */
-	public function getAllOffers(int $limit = 50, int $offset = 0): array
+	public function updateOffer(string $id, array $data): array|false
 	{
-		return $this->findAll($limit, $offset);
+		return $this->update($id, $data) ? $this->findById($id) : false;
 	}
 
-	/**
-	 * Get offers for a specific user.
-	 * 
-	 * @param string $userId
-	 * @param int|null $limit
-	 * @param int|null $offset
-	 * @return array
-	 */
-	public function getOffersByUser(string $userId, ?int $limit = 50, ?int $offset = 0): array
+	public function deleteOffer(string $id): bool
 	{
-		// Return offers belonging to a user, joined with skill meta (name, category)
-		$sql = 'SELECT o.*,'
-			. ' s.name AS skill_name, s.category AS skill_category'
-			. ' FROM ' . $this->quoteIdentifier($this->table) . ' o'
-			. ' LEFT JOIN ' . $this->quoteIdentifier('Skills') . ' s ON o.' . $this->quoteIdentifier('skill_id') . ' = s.' . $this->quoteIdentifier('id')
-			. ' WHERE o.' . $this->quoteIdentifier('user_id') . ' = :user'
-			. ' ORDER BY o.' . $this->quoteIdentifier($this->primaryKey) . ' DESC'
-			. ' LIMIT :limit OFFSET :offset';
-
-		$stmt = $this->db->prepare($sql);
-		$stmt->bindValue(':user', $userId, PDO::PARAM_STR);
-		$stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-		$stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-		$stmt->execute();
-
-		return $stmt->fetchAll();
-	}
-
-	/**
-	 * Get offers matching any of the provided skill ids.
-	 *
-	 * @param array $skillIds
-	 * @param int $limit
-	 * @param int $offset
-	 * @return array
-	 */
-	public function getOffersBySkillIds(array $skillIds, int $limit = 50, int $offset = 0): array
-	{
-		if (empty($skillIds)) return [];
-
-		$placeholders = [];
-		$params = [];
-		foreach ($skillIds as $i => $sid) {
-			$ph = ':s' . $i;
-			$placeholders[] = $ph;
-			$params[$ph] = $sid;
-		}
-
-		$sql = 'SELECT o.*, s.name AS skill_name, s.category AS skill_category'
-			. ' FROM ' . $this->quoteIdentifier($this->table) . ' o'
-			. ' LEFT JOIN ' . $this->quoteIdentifier('Skills') . ' s ON o.' . $this->quoteIdentifier('skill_id') . ' = s.' . $this->quoteIdentifier('id')
-			. ' WHERE o.' . $this->quoteIdentifier('skill_id') . ' IN (' . implode(',', $placeholders) . ')';
-
-		$me = isset($_SESSION['user_id']) ? trim($_SESSION['user_id']) : null;
-		if (!empty($me)) {
-			$sql = rtrim($sql, ';') . ' AND o.' . $this->quoteIdentifier('user_id') . ' != :me';
-			$params[':me'] = $me;
-		}
-
-		$sql .= ' ORDER BY o.' . $this->quoteIdentifier($this->primaryKey) . ' DESC';
-		$sql .= ' LIMIT :limit OFFSET :offset';
-
-		$stmt = $this->db->prepare($sql);
-		foreach ($params as $k => $v) {
-			$stmt->bindValue($k, $v, PDO::PARAM_STR);
-		}
-		$stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-		$stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-		$stmt->execute();
-
-		return $stmt->fetchAll();
-	}
-
-	/**
-	 * Filter offers by skill_id (UUID) or skill name and availability.
-	 * 
-	 * @param string|null $skillIdOrName
-	 * @param string|null $availability
-	 * @param int $limit
-	 * @param int $offset
-	 * @return array
-	 */
-	public function filterOffers(?string $skillIdOrName = null, ?string $availability = null, int $limit = 50, int $offset = 0): array
-	{
-		$where = [];
-		$params = [];
-
-		$sql = 'SELECT o.* FROM ' . $this->quoteIdentifier($this->table) . ' o';
-
-		if ($skillIdOrName !== null && $skillIdOrName !== '') {
-			if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $skillIdOrName)) {
-				$where[] = $this->quoteIdentifier('o') . '.' . $this->quoteIdentifier('skill_id') . ' = :skill';
-				$params[':skill'] = $skillIdOrName;
-			} else {
-				$sql .= ' JOIN ' . $this->quoteIdentifier('Skills') . ' s ON o.' . $this->quoteIdentifier('skill_id') . ' = s.' . $this->quoteIdentifier('id');
-				$where[] = 's.' . $this->quoteIdentifier('name') . ' LIKE :skill';
-				$params[':skill'] = '%' . trim($skillIdOrName) . '%';
-			}
-		}
-
-		if ($availability !== null) {
-			$where[] = $this->quoteIdentifier('o') . '.' . $this->quoteIdentifier('availability') . ' = :availability';
-			$params[':availability'] = trim($availability);
-		}
-
-		if (!empty($where)) {
-			$sql .= ' WHERE ' . implode(' AND ', $where);
-		}
-
-		$sql .= ' ORDER BY ' . $this->quoteIdentifier('o') . '.' . $this->quoteIdentifier($this->primaryKey) . ' DESC';
-		$sql .= ' LIMIT :limit OFFSET :offset';
-
-		$stmt = $this->db->prepare($sql);
-		foreach ($params as $key => $value) {
-			$stmt->bindValue($key, $value, PDO::PARAM_STR);
-		}
-		$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-		$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-		$stmt->execute();
-
-		return $stmt->fetchAll();
+		return $this->delete($id);
 	}
 }

@@ -1,34 +1,30 @@
 <?php
 $title = 'Create Offer';
 require __DIR__ . '/../shared/header.php';
+assert(!empty($skill_id));
 ?>
 
-<div style="max-width:760px;margin:36px auto;padding:18px;border:1px solid #eee;border-radius:6px">
+<div class="container my-4 p-4 border rounded" style="max-width:760px">
 	<h1>Create Offer</h1>
 
-	<?php if (!empty($errors) && is_array($errors)): ?>
-		<div class="errors">
-			<ul><?php foreach ($errors as $e) echo '<li>' . norm($e) . '</li>'; ?></ul>
-		</div>
-	<?php endif; ?>
-
 	<form method="post" action="<?= $baseUrl . $basepath ?>offers/create">
-		<input type="hidden" name="skill_id" value="<?= norm($skill_id ?? '') ?>" />
-		<div class="form-row">
-			<label>Title</label>
-			<input type="text" name="title" value="<?= norm($_POST['title'] ?? '') ?>" />
+		<input type="hidden" name="skill_id" value="<?= norm((string)$skill_id) ?>" />
+
+		<div class="mb-3">
+			<label class="form-label">Title</label>
+			<input type="text" class="form-control" name="title" value="<?= norm($_POST['title'] ?? '') ?>" />
 		</div>
-		<div class="form-row">
-			<label>Availability</label>
-			<input type="text" name="availability" value="<?= norm($_POST['availability'] ?? '') ?>" />
+		<div class="mb-3">
+			<label class="form-label">Availability</label>
+			<input type="text" class="form-control" name="availability" value="<?= norm($_POST['availability'] ?? '') ?>" />
 		</div>
-		<div class="form-row">
-			<label>Description</label>
-			<textarea name="description"><?= norm($_POST['description'] ?? '') ?></textarea>
+		<div class="mb-3">
+			<label class="form-label">Description</label>
+			<textarea class="form-control" name="description"><?= norm($_POST['description'] ?? '') ?></textarea>
 		</div>
-		<div style="margin-top:12px">
-			<button class="btn" type="submit">Create</button>
-			<a class="btn muted" href="<?= $baseUrl . $basepath ?>profile/offers" style="margin-left:8px">Cancel</a>
+		<div class="mt-3">
+			<button class="btn btn-primary" type="submit">Create</button>
+			<a class="btn btn-secondary ms-2" href="<?= $baseUrl . $basepath ?>profile/offers" style="margin-left:8px">Cancel</a>
 		</div>
 	</form>
 </div>

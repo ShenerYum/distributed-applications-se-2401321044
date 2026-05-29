@@ -1,34 +1,38 @@
 <?php
 
+declare(strict_types=1);
+
 if (!defined('__ROOT__')) {
 	define('__ROOT__', dirname(__DIR__));
 }
 
-function loadEnvFile(string $path): array
-{
-	if (!file_exists($path)) {
-		return [];
-	}
-
-	$env = [];
-	foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-		$line = trim($line);
-		if ($line === '' || str_starts_with($line, '#')) {
-			continue;
+if (!function_exists('loadEnvFile')) {
+	function loadEnvFile(string $path): array
+	{
+		if (!file_exists($path)) {
+			return [];
 		}
 
-		$parts = explode('=', $line, 2);
-		if (count($parts) !== 2) {
-			continue;
+		$env = [];
+		foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+			$line = trim($line);
+			if ($line === '' || str_starts_with($line, '#')) {
+				continue;
+			}
+
+			$parts = explode('=', $line, 2);
+			if (count($parts) !== 2) {
+				continue;
+			}
+
+			$name = trim($parts[0]);
+			$value = trim($parts[1]);
+			$value = trim($value, "\"'");
+			$env[$name] = $value;
 		}
 
-		$name = trim($parts[0]);
-		$value = trim($parts[1]);
-		$value = trim($value, "\"'");
-		$env[$name] = $value;
+		return $env;
 	}
-
-	return $env;
 }
 
 $baseConfig = [
@@ -56,5 +60,7 @@ if (!empty($env)) {
 		$baseConfig['app_base_url'] = $env['APP_BASE_URL'];
 	}
 }
+
+$baseConfig['app_env'] = $env['APP_ENV'] ?? 'production';
 
 return $baseConfig;

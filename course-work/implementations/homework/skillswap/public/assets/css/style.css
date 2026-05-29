@@ -1,3 +1,9 @@
 /* Minimal starter styles */
 body { font-family: Arial, Helvetica, sans-serif; margin: 32px; }
 h1 { color: #333; }
+
+/* Legacy class compatibility (views previously used these) */
+.btn { text-decoration: none; }
+.btn.muted, .muted { color: #6c757d !important; }
+.btn.danger, .danger { background: #dc3545 !important; border-color: #dc3545 !important; color: #fff !important; }
+

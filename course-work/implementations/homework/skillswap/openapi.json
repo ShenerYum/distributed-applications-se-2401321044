@@ -1,0 +1,1779 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "SkillSwap API",
+        "description": "API specification for the SkillSwap application",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://skillswap"
+        }
+    ],
+    "paths": {
+        "/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new user",
+                "description": "Register a new user.\r\nExpects POST: name, email, password",
+                "operationId": "c03b45aa901e99c883ff52eab8b57c4b",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "password_confirm": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login user",
+                "description": "Login existing user.\r\nExpects POST: email, password",
+                "operationId": "b5e4a9b6b2e51f894726ff59c31842d7",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Authenticated"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout current user",
+                "description": "Logout current user.",
+                "operationId": "a8064bdf1beedfca353f6b480e7a5708",
+                "responses": {
+                    "200": {
+                        "description": "Logged out"
+                    }
+                }
+            }
+        },
+        "/matches/{matchId}": {
+            "delete": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "Delete a match (admin)",
+                "description": "DELETE a match. Only admin may delete matches. Cascade-deletes reviews and recalculates affected ratings.",
+                "operationId": "6239b656d679b8354aa1d4572ac7c4c8",
+                "parameters": [
+                    {
+                        "name": "matchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/matches": {
+            "get": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "List matches for the current user",
+                "description": "GET list matches for the current user with optional pagination. Expects GET: limit (optional), offset (optional).",
+                "operationId": "75db6b3f45aef284b6997f0adbd6477e",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of matches"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "Create a match",
+                "description": "Render create match form (GET) and handle creation (POST).\r\nExpects either ?offer_id=... (to match an offer) or ?request_id=... (to match a request)",
+                "operationId": "7d672af1c2eeb3e70375f3c000fadc12",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "offer_id": {
+                                        "type": "string"
+                                    },
+                                    "request_id": {
+                                        "type": "string"
+                                    },
+                                    "my_selection": {
+                                        "type": "string"
+                                    },
+                                    "score": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Match"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/matches/reject": {
+            "post": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "Reject a match",
+                "description": "Reject (soft-delete) a match. POST: match_id",
+                "operationId": "7bef928c6dc0e78bb8e09de30ee3d55e",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "match_id"
+                                ],
+                                "properties": {
+                                    "match_id": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Rejected"
+                    }
+                }
+            }
+        },
+        "/matches/my": {
+            "get": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "View my matches",
+                "description": "Render profile matches for the current user (HTML view)",
+                "operationId": "670eab63d7a98d0b43dfff093f31af35",
+                "responses": {
+                    "200": {
+                        "description": "List of my matches"
+                    }
+                }
+            }
+        },
+        "/matches/find": {
+            "get": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "Find mutual matches for the current user",
+                "description": "Find mutual matches for the current user. Expects GET: limit (optional).",
+                "operationId": "4f6168fd583fdb33af65be3f36620d76",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of mutual matches"
+                    }
+                }
+            }
+        },
+        "/matches/accept": {
+            "post": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "Accept a proposed match",
+                "description": "Accept a proposed match (create Match record and mark accepted).\r\nExpects POST: matched_user_id, my_offer_id, my_request_id, their_offer_id, their_request_id, score",
+                "operationId": "0bed5e9ffd8ef4c0c63f7c38fc649782",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "matched_user_id": {
+                                        "type": "string"
+                                    },
+                                    "my_offer_id": {
+                                        "type": "string"
+                                    },
+                                    "my_request_id": {
+                                        "type": "string"
+                                    },
+                                    "their_offer_id": {
+                                        "type": "string"
+                                    },
+                                    "their_request_id": {
+                                        "type": "string"
+                                    },
+                                    "score": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Match created"
+                    }
+                }
+            }
+        },
+        "/matches/complete": {
+            "post": {
+                "tags": [
+                    "Matches"
+                ],
+                "summary": "Mark a match as completed",
+                "description": "Mark a match as completed. Expects POST: match_id",
+                "operationId": "a32d66990900cf201f14840e36136199",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "match_id": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Match completed"
+                    }
+                }
+            }
+        },
+        "/offers": {
+            "get": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "List offers",
+                "description": "API: list offers (JSON) with optional filtering.",
+                "operationId": "3bf937cb8f32b83f3004208d41c06285",
+                "parameters": [
+                    {
+                        "name": "skill_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "availability",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of offers"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "Create an offer",
+                "description": "Render create offer form (GET) and handle creation (POST).",
+                "operationId": "b448bfc73f7fbeee2cafe5dcba7b23fb",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "skill_id",
+                                    "title"
+                                ],
+                                "properties": {
+                                    "skill_id": {
+                                        "type": "string"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "availability": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        },
+        "/offers/browse": {
+            "get": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "Browse offers (HTML view or JSON list)",
+                "description": "Render browse offers page (HTML) or return JSON list.",
+                "operationId": "3eb2b7397900c11567023cc7cf9ee0ad",
+                "parameters": [
+                    {
+                        "name": "skill_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "availability",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of offers or HTML view"
+                    }
+                }
+            }
+        },
+        "/offers/{offerId}": {
+            "put": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "Update an offer",
+                "description": "API: update an existing offer (JSON).",
+                "operationId": "dfcd3ae61ae28bb331cc456d47fd3ad3",
+                "parameters": [
+                    {
+                        "name": "offerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "skill_id": {
+                                        "type": "string"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "availability": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "Delete an offer (owner or admin)",
+                "description": "API: delete an offer (JSON POST id).",
+                "operationId": "cd6552fff3052747aa7d228f7f2776e3",
+                "parameters": [
+                    {
+                        "name": "offerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/offers/my": {
+            "get": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "View my offers",
+                "description": "Render current user's offers (profile/offers).",
+                "operationId": "d9b67357bff9600317fb53f921cce5d2",
+                "responses": {
+                    "200": {
+                        "description": "List of my offers"
+                    }
+                }
+            }
+        },
+        "/offers/{offerId}/edit": {
+            "post": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "Edit an offer (owner or admin)",
+                "description": "Edit an offer (owner or admin). GET renders form, POST applies update and redirects to profile/offers.",
+                "operationId": "d48c55604b1939b728df2e0e8e569203",
+                "parameters": [
+                    {
+                        "name": "offerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "skill_id": {
+                                        "type": "string"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "availability": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            }
+        },
+        "/offers/{offerId}/delete": {
+            "post": {
+                "tags": [
+                    "Offers"
+                ],
+                "summary": "Delete an offer (owner or admin)",
+                "description": "Delete an offer by id (owner or admin). Accepts POST and redirects to profile/offers.",
+                "operationId": "2b3677ddedc459d8bc3d52c4eab0925b",
+                "parameters": [
+                    {
+                        "name": "offerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/profile": {
+            "get": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Get current authenticated user's profile",
+                "description": "Render profile view for current authenticated user.",
+                "operationId": "a79a9edc14ec3921fa042c4485b3c357",
+                "responses": {
+                    "200": {
+                        "description": "User profile"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Edit current user's profile",
+                "description": "Edit profile: GET renders edit form, POST applies changes and redirects to profile.",
+                "operationId": "b60595ea60eb0e32bbdb85373df49f18",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Profile"
+                ],
+                "summary": "Delete current user's account",
+                "description": "Delete current user's account. Supports POST (form) and JSON API.",
+                "operationId": "831ec7e73a7bca8d4f5fe5fbd93edc0d",
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/requests": {
+            "get": {
+                "tags": [
+                    "Requests"
+                ],
+                "summary": "List requests",
+                "description": "API: list requests (JSON) with optional filtering.",
+                "operationId": "4cd5fffa4808cf84b5af0ca0ed8f7d05",
+                "parameters": [
+                    {
+                        "name": "skill_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "availability",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of requests"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Requests"
+                ],
+                "summary": "Create a request",
+                "description": "Render create request form (GET) and handle creation (POST).\r\nInputs: title, desired_level (mapped to availability), notes (mapped to description), max_hours",
+                "operationId": "4df50acc1cd68678a5b333a6252ace09",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "skill_id",
+                                    "title"
+                                ],
+                                "properties": {
+                                    "skill_id": {
+                                        "type": "string"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "desired_level": {
+                                        "type": "string"
+                                    },
+                                    "notes": {
+                                        "type": "string"
+                                    },
+                                    "max_hours": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        },
+        "/requests/browse": {
+            "get": {
+                "tags": [
+                    "Requests"
+                ],
+                "summary": "Browse requests (HTML view or JSON list)",
+                "description": "Render browse requests page (HTML) or return JSON list.",
+                "operationId": "e7fb6a2c9f391f2d41da020f73f26a31",
+                "parameters": [
+                    {
+                        "name": "skill_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "availability",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of requests or HTML view"
+                    }
+                }
+            }
+        },
+        "/requests/{requestId}/edit": {
+            "put": {
+                "tags": [
+                    "Requests"
+                ],
+                "summary": "Update a request",
+                "description": "API: update an existing request (JSON).",
+                "operationId": "68dfbff02e4dbce6556961ded0d2a690",
+                "parameters": [
+                    {
+                        "name": "requestId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "skill_id": {
+                                        "type": "string"
+                                    },
+                                    "desired_level": {
+                                        "type": "string"
+                                    },
+                                    "max_hours": {
+                                        "type": "integer"
+                                    },
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "notes": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            }
+        },
+        "/requests/{requestId}/delete": {
+            "delete": {
+                "tags": [
+                    "Requests"
+                ],
+                "summary": "Delete a request (owner or admin)",
+                "description": "API: delete a request (JSON POST id).",
+                "operationId": "6844a81563d4bc778c3008071d6224d7",
+                "parameters": [
+                    {
+                        "name": "requestId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/requests/my": {
+            "get": {
+                "tags": [
+                    "Requests"
+                ],
+                "summary": "View my requests",
+                "description": "Render current user's requests (profile/requests).",
+                "operationId": "2e5367d9885b00d4db22bb708048a618",
+                "responses": {
+                    "200": {
+                        "description": "List of my requests"
+                    }
+                }
+            }
+        },
+        "/reviews": {
+            "get": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "List reviews",
+                "description": "GET list reviews for a user. Requires user_id, optional limit and offset.",
+                "operationId": "7d202b203c1f676611d1bc288b318ae3",
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of reviews",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Review"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/profile/reviews": {
+            "get": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "View my reviews (HTML view)",
+                "description": "Render profile reviews page for current user (HTML)",
+                "operationId": "962f53cb98017d6882c368f7febc6420",
+                "responses": {
+                    "200": {
+                        "description": "HTML view of my reviews"
+                    }
+                }
+            }
+        },
+        "/reviews/all": {
+            "get": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "Admin: List all reviews with optional sorting",
+                "description": "Admin index to list all reviews with optional sorting.",
+                "operationId": "0c1aadd437417822dc0d0e303c1387f9",
+                "parameters": [
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "created_at",
+                                "rating"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all reviews",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Review"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reviews/create": {
+            "post": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "Create a review",
+                "description": "POST create a new review for a match. Requires reviewer_id, match_id, rating (1..5), and optional feedback.",
+                "operationId": "2d2271feba18ebb4f5ff469db653c3f5",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "match_id",
+                                    "rating"
+                                ],
+                                "properties": {
+                                    "match_id": {
+                                        "type": "string"
+                                    },
+                                    "rating": {
+                                        "type": "integer"
+                                    },
+                                    "feedback": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Review"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reviews/{reviewId}/edit": {
+            "put": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "Update a review",
+                "description": "PUT update an existing review. Requires review id and at least one of rating or feedback.",
+                "operationId": "e8a3530523a6c8398d095754a51741c4",
+                "parameters": [
+                    {
+                        "name": "reviewId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "rating": {
+                                        "type": "integer"
+                                    },
+                                    "feedback": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    }
+                }
+            }
+        },
+        "/reviews/{reviewId}/delete": {
+            "delete": {
+                "tags": [
+                    "Reviews"
+                ],
+                "summary": "Delete a review",
+                "description": "DELETE delete a review by id. Admin or reviewer only.",
+                "operationId": "963b54be85085079f84bc3670cd8720b",
+                "parameters": [
+                    {
+                        "name": "reviewId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/skills": {
+            "get": {
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "List skills",
+                "description": "GET list skills with optional filtering by name and pagination.",
+                "operationId": "6ebc0836ad24b3910375a50d512d2f3a",
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of skills"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Create a skill",
+                "description": "POST create a new skill. Admin only.",
+                "operationId": "d524819e967ca52ae097480e44f30f9a",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "category": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        },
+        "/skills/index": {
+            "get": {
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Render skills index view (HTML) or return JSON list of skills",
+                "description": "Render skills index view for HTML clients, or return JSON for API.",
+                "operationId": "3c8fead2744b3b077f542d28970e5007",
+                "parameters": [
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Skills index view or JSON list of skills"
+                    }
+                }
+            }
+        },
+        "/skills/{skillId}": {
+            "put": {
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Update a skill",
+                "description": "PUT update an existing skill. Admin only. Requires skill id and at least one of name or description.",
+                "operationId": "fffa341a70f3c9363a7abc0ca412c145",
+                "parameters": [
+                    {
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "category": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    },
+                    "422": {
+                        "description": "Invalid"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Delete a skill",
+                "description": "DELETE delete a skill by id. Admin only.",
+                "operationId": "82fe1bbac48780c800762866b5984280",
+                "parameters": [
+                    {
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    }
+                }
+            }
+        },
+        "/skills/{skillId}/edit": {
+            "get": {
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Render form to edit a skill (admin only)",
+                "description": "Edit skill (admin only): GET renders edit form, POST applies update and redirects.",
+                "operationId": "26e89a9e20f069dbbc600078f622b7e1",
+                "parameters": [
+                    {
+                        "name": "skillId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Edit skill form"
+                    }
+                }
+            }
+        },
+        "/users": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "List users",
+                "description": "Render all users view.",
+                "operationId": "6d5c86b4a6c847d39ba80d64e641603b",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/users/{userId}": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get user by id",
+                "description": "Show a single user's profile (users/{id}).",
+                "operationId": "ff54e84162177a0842c02f08f74062e4",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Update a user",
+                "description": "Edit a user (admin only). GET renders form, POST applies update and redirects.",
+                "operationId": "2d7b4d8ec65743a28c6ad99888166eb8",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "is_admin": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Delete a user",
+                "description": "Delete a user (admin only). POST form or JSON supported.",
+                "operationId": "85ce202f70e938df9ce4005204f9f3de",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted"
+                    },
+                    "405": {
+                        "description": "Method not allowed"
+                    }
+                }
+            }
+        },
+        "/users/{userId}/offers": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "List offers by user",
+                "description": "Show offers posted by a user: users/{id}/offers",
+                "operationId": "43aed24a7a5b6bfa30f98d9ce5d7f52a",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Offers list"
+                    }
+                }
+            }
+        },
+        "/users/{userId}/requests": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "List requests by user",
+                "description": "Show requests posted by a user: users/{id}/requests",
+                "operationId": "caaeea88e28706ee1890301de561b5cf",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Requests list"
+                    }
+                }
+            }
+        },
+        "/users/{userId}/reviews": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "List reviews for user",
+                "description": "Show reviews received by a user: users/{id}/reviews",
+                "operationId": "e6311a5818ec42e66e91fb3bab2cc7c2",
+                "parameters": [
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reviews list"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Match": {
+                "properties": {
+                    "id": {
+                        "description": "MatchModel is responsible for handling match-related operations such as creating matches, retrieving matches for users, and updating match status.",
+                        "type": "string"
+                    },
+                    "offer_id": {
+                        "type": "string"
+                    },
+                    "request_id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "accepted",
+                            "rejected",
+                            "completed"
+                        ]
+                    },
+                    "score": {
+                        "type": "number"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Offer": {
+                "properties": {
+                    "id": {
+                        "description": "OfferModel is responsible for handling offer-related operations such as creating new offers, filtering offers by skill and availability, and retrieving offers for specific users.",
+                        "type": "string"
+                    },
+                    "user_id": {
+                        "type": "string"
+                    },
+                    "skill_id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "availability": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Request": {
+                "properties": {
+                    "id": {
+                        "description": "RequestModel is responsible for handling request-related operations such as creating new requests, filtering requests by skill and desired_level, and retrieving requests for specific users.",
+                        "type": "string"
+                    },
+                    "user_id": {
+                        "type": "string"
+                    },
+                    "skill_id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": "string"
+                    },
+                    "max_hours": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Review": {
+                "properties": {
+                    "id": {
+                        "description": "ReviewModel is responsible for handling review-related operations such as adding reviews for completed matches and retrieving reviews for users.",
+                        "type": "string"
+                    },
+                    "match_id": {
+                        "type": "string"
+                    },
+                    "author_id": {
+                        "type": "string"
+                    },
+                    "target_user_id": {
+                        "type": "string"
+                    },
+                    "rating": {
+                        "type": "integer",
+                        "maximum": 5,
+                        "minimum": 1
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Skill": {
+                "properties": {
+                    "id": {
+                        "description": "SkillModel is responsible for handling skill-related operations such as creating, updating, deleting, and listing skills.",
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "User": {
+                "properties": {
+                    "id": {
+                        "description": "UserModel is responsible for handling user-related operations such as registration and authentication.",
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "rating": {
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "is_admin": {
+                        "type": "boolean"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Authentication endpoints"
+        },
+        {
+            "name": "Matches",
+            "description": "Match lifecycle and administration"
+        },
+        {
+            "name": "Offers",
+            "description": "Offer browsing and management"
+        },
+        {
+            "name": "Profile",
+            "description": "Current user profile and account management"
+        },
+        {
+            "name": "Requests",
+            "description": "Request browsing and management"
+        },
+        {
+            "name": "Reviews",
+            "description": "Review operations and administration"
+        },
+        {
+            "name": "Skills",
+            "description": "Skill catalog operations"
+        },
+        {
+            "name": "Users",
+            "description": "User management endpoints"
+        }
+    ]
+}

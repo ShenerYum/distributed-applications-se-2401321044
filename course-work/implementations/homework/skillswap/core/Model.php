@@ -1,10 +1,9 @@
 <?php
 
-if (!defined('__ROOT__')) {
-	define('__ROOT__', dirname(__DIR__));
-}
+namespace App\Core;
 
-require_once __ROOT__ . '/core/Database.php';
+use PDO;
+
 
 /**
  * Base Model class providing common database operations for all models.
@@ -12,39 +11,21 @@ require_once __ROOT__ . '/core/Database.php';
  */
 class Model
 {
-	/**
-	 * Database connection instance. Initialized in the constructor.
-	 * @var PDO
-	 */
-	protected $db;
-
-	/**
-	 * Table name for the model. Set in child classes or via setTable().
-	 * @var string
-	 */
-	protected $table = '';
-
-	/**
-	 * Primary key column name.
-	 * @var string
-	 */
-	protected $primaryKey = 'id';
+	protected string $table = '';
+	protected string $primaryKey = 'id';
 
 	/**
 	 * Constructor initializes the database connection. The Database instance must be initialized in bootstrap (public/index.php) before creating any Model instances.
 	 */
-	public function __construct()
-	{
-		// Database instance must be initialized in bootstrap (public/index.php)
-		$this->db = Database::getInstance()->getConnection();
-	}
+	public function __construct(private PDO $db) {}
+
 
 	/**
 	 * Set the table name for the model. Can be used in child classes or dynamically.
 	 * 
 	 * @param string $table The name of the database table associated with this model.
 	 */
-	public function setTable(string $table)
+	public function setTable(string $table): void
 	{
 		$this->table = $table;
 	}
@@ -54,7 +35,7 @@ class Model
 	 * 
 	 * @param string $pk The name of the primary key column.
 	 */
-	public function setPrimaryKey(string $pk)
+	public function setPrimaryKey(string $pk): void
 	{
 		$this->primaryKey = $pk;
 	}
@@ -88,7 +69,7 @@ class Model
 	public function create(array $data): string
 	{
 		if (empty($this->table)) {
-			throw new RuntimeException('Model table not set');
+			throw new \RuntimeException('Model table not set');
 		}
 
 		// Generate UUID for the primary key if not provided
@@ -123,7 +104,7 @@ class Model
 	public function findById(string $id): ?array
 	{
 		if (empty($this->table)) {
-			throw new RuntimeException('Model table not set');
+			throw new \RuntimeException('Model table not set', 500);
 		}
 
 		$sql = sprintf('SELECT * FROM %s WHERE %s = :id LIMIT 1', $this->quoteIdentifier($this->table), $this->quoteIdentifier($this->primaryKey));
@@ -143,7 +124,7 @@ class Model
 	public function findAll(?int $limit = null, ?int $offset = null): array
 	{
 		if (empty($this->table)) {
-			throw new RuntimeException('Model table not set');
+			throw new \RuntimeException('Model table not set', 500);
 		}
 
 		$sql = sprintf('SELECT * FROM %s', $this->quoteIdentifier($this->table));
@@ -159,6 +140,56 @@ class Model
 	}
 
 	/**
+	 * Find records by specified criteria.
+	 * 
+	 * @param array $criteria An associative array of column => value pairs for the WHERE clause.
+	 * @param ?int $limit The maximum number of records to return.
+	 * @param ?int $offset The number of records to skip before starting to return rows.
+	 * @return array An array of associative arrays representing the records.
+	 */
+	public function findBy(array $criteria, ?int $limit = null, ?int $offset = null): array
+	{
+		if (empty($this->table)) {
+			throw new \RuntimeException('Model table not set', 500);
+		}
+
+		$wheres = [];
+		$bind = [];
+		foreach ($criteria as $k => $v) {
+			if ($v === '' || $v === null) {
+				unset($criteria[$k]);
+				continue;
+			}
+
+			$placeholder = ':' . $k;
+			if ($k === 'name' || $k === 'title') {
+				$wheres[] = $this->quoteIdentifier($k) . ' LIKE ' . $placeholder;
+				$bind[$placeholder] = '%' . $v . '%';
+			} else {
+				$wheres[] = $this->quoteIdentifier($k) . ' = ' . $placeholder;
+				$bind[$placeholder] = $v;
+			}
+		}
+
+		$sql = sprintf('SELECT * FROM %s', $this->quoteIdentifier($this->table));
+		if (!empty($wheres)) {
+			$sql .= ' WHERE ' . implode(' AND ', $wheres);
+		}
+		if ($limit !== null) {
+			$sql .= ' LIMIT ' . (int)$limit;
+			if ($offset !== null) {
+				$sql .= ' OFFSET ' . (int)$offset;
+			}
+		}
+
+		//return [$sql];
+
+		$stmt = $this->db->prepare($sql);
+		$stmt->execute($bind);
+		return $stmt->fetchAll();
+	}
+
+	/**
 	 * Update a record identified by its primary key with the provided data.
 	 * 
 	 * @param string $id The value of the primary key for the record to update.
@@ -168,7 +199,7 @@ class Model
 	public function update(string $id, array $data): bool
 	{
 		if (empty($this->table)) {
-			throw new RuntimeException('Model table not set');
+			throw new \RuntimeException('Model table not set', 500);
 		}
 
 		$cols = array_keys($data);
@@ -195,7 +226,7 @@ class Model
 	public function delete(string $id): bool
 	{
 		if (empty($this->table)) {
-			throw new RuntimeException('Model table not set');
+			throw new \RuntimeException('Model table not set');
 		}
 
 		$sql = sprintf('DELETE FROM %s WHERE %s = :id', $this->quoteIdentifier($this->table), $this->quoteIdentifier($this->primaryKey));
@@ -212,7 +243,7 @@ class Model
 	public function soft_delete(string $id): bool
 	{
 		if (empty($this->table)) {
-			throw new RuntimeException('Model table not set');
+			throw new \RuntimeException('Model table not set', 500);
 		}
 
 		$sql = sprintf(
@@ -227,43 +258,7 @@ class Model
 		return $stmt->execute([':ts' => $ts, ':id' => $id]);
 	}
 
-	/**
-	 * Find records by specified criteria.
-	 * 
-	 * @param array $criteria An associative array of column => value pairs for the WHERE clause.
-	 * @param ?int $limit The maximum number of records to return.
-	 * @param ?int $offset The number of records to skip before starting to return rows.
-	 * @return array An array of associative arrays representing the records.
-	 */
-	public function findBy(array $criteria, ?int $limit = null, ?int $offset = null): array
-	{
-		if (empty($this->table)) {
-			throw new RuntimeException('Model table not set');
-		}
 
-		$wheres = [];
-		$bind = [];
-		foreach ($criteria as $k => $v) {
-			$placeholder = ':' . $k;
-			$wheres[] = $this->quoteIdentifier($k) . ' = ' . $placeholder;
-			$bind[$placeholder] = $v;
-		}
-
-		$sql = sprintf('SELECT * FROM %s', $this->quoteIdentifier($this->table));
-		if (!empty($wheres)) {
-			$sql .= ' WHERE ' . implode(' AND ', $wheres);
-		}
-		if ($limit !== null) {
-			$sql .= ' LIMIT ' . (int)$limit;
-			if ($offset !== null) {
-				$sql .= ' OFFSET ' . (int)$offset;
-			}
-		}
-
-		$stmt = $this->db->prepare($sql);
-		$stmt->execute($bind);
-		return $stmt->fetchAll();
-	}
 
 	/**
 	 * Execute a raw SQL query with optional parameters and return the results.

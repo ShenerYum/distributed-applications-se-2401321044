@@ -15,6 +15,7 @@ require __DIR__ . '/../shared/header.php';
 					<th>Title</th>
 					<th>Availability</th>
 					<th>Description</th>
+					<th>Active</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -24,6 +25,7 @@ require __DIR__ . '/../shared/header.php';
 						<td><?= norm($o['title'] ?? '') ?></td>
 						<td><?= norm($o['availability'] ?? '') ?></td>
 						<td><?= norm($o['description'] ?? '') ?></td>
+						<td><?= isset($o['is_active']) && $o['is_active'] ? 'Yes' : 'No' ?></td>
 						<td>
 							<a href="<?= $baseUrl . $basepath ?>offers/<?= norm($o['id']) ?>/edit">Edit</a>
 							<form method="post" action="<?= $baseUrl . $basepath ?>offers/<?= norm($o['id']) ?>/delete" style="display:inline-block;margin-left:8px;">

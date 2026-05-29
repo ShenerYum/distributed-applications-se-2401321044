@@ -4,32 +4,47 @@ $title = 'Register';
 require __DIR__ . '/shared/header.php';
 ?>
 
-<div class="auth" style="max-width:520px;margin:48px auto;padding:18px;border:1px solid #ddd;border-radius:6px">
-	<h1>Register</h1>
+<div class="container" style="max-width:520px;margin-top:60px">
+	<div class="card shadow-sm">
+		<div class="card-body p-4">
+			<h1 class="card-title">Register</h1>
 
-	<?php if (!empty($errors) && is_array($errors)): ?>
-		<?php foreach ($errors as $err): ?>
-			<p class="error"><?= norm($err) ?></p>
-		<?php endforeach; ?>
-	<?php endif; ?>
+			<?php if (!empty($errors) && is_array($errors)): ?>
+				<?php foreach ($errors as $err): ?>
+					<div class="alert alert-danger alert-dismissible fade show" role="alert">
+						<?= norm($err) ?>
+						<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+					</div>
+				<?php endforeach; ?>
+			<?php endif; ?>
 
-	<form method="post" action="<?= $baseUrl . $basepath; ?>register">
-		<label for="name">Full name</label>
-		<input id="name" type="text" name="name" required>
+			<form method="post" action="<?= $baseUrl . $basepath; ?>register">
+				<div class="mb-3">
+					<label for="name" class="form-label">Full name</label>
+					<input id="name" type="text" class="form-control" name="name" required>
+				</div>
 
-		<label for="email">Email</label>
-		<input id="email" type="email" name="email" required>
+				<div class="mb-3">
+					<label for="email" class="form-label">Email</label>
+					<input id="email" type="email" class="form-control" name="email" required>
+				</div>
 
-		<label for="password">Password</label>
-		<input id="password" type="password" name="password" required>
+				<div class="mb-3">
+					<label for="password" class="form-label">Password</label>
+					<input id="password" type="password" class="form-control" name="password" required>
+				</div>
 
-		<label for="confirm">Confirm password</label>
-		<input id="confirm" type="password" name="password_confirm" required>
+				<div class="mb-3">
+					<label for="confirm" class="form-label">Confirm password</label>
+					<input id="confirm" type="password" class="form-control" name="password_confirm" required>
+				</div>
 
-		<button type="submit">Create account</button>
-	</form>
+				<button type="submit" class="btn btn-primary w-100">Create account</button>
+			</form>
 
-	<p>Already registered? <a href="<?= $baseUrl . $basepath; ?>login">Login</a></p>
+			<p class="mt-3 text-center">Already registered? <a href="<?= $baseUrl . $basepath; ?>login">Login</a></p>
+		</div>
+	</div>
 </div>
 
 <?php require __DIR__ . '/shared/footer.php'; ?>
